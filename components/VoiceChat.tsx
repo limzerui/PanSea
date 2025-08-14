@@ -55,21 +55,34 @@ export default function VoiceChat() {
   async function handleSend(text: string) {
     const trimmed = text.trim();
     if (!trimmed) return;
-
+  
     const userMsg: ChatMessage = { id: generateId('usr'), role: 'user', text: trimmed };
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
     resetTranscripts();
-
+  
     setIsSending(true);
     try {
-      const reply = await getAssistantResponse(trimmed);
-      const assistantMsg: ChatMessage = { id: generateId('asst'), role: 'assistant', text: reply };
+      const rawReply = await getAssistantResponse(trimmed);
+  
+      // --- Extract only the first JSON object ---
+      const match = rawReply.match(/\{[\s\S]*?\}/);
+      let replyText = rawReply;
+      if (match) {
+        try {
+          const parsed = JSON.parse(match[0]);
+          replyText = parsed.response || rawReply;
+        } catch (e) {
+          console.warn("Failed to parse JSON:", e);
+        }
+      }
+  
+      const assistantMsg: ChatMessage = { id: generateId('asst'), role: 'assistant', text: replyText };
       lastAssistantMsgIdRef.current = assistantMsg.id;
       setMessages(prev => [...prev, assistantMsg]);
-
+  
       if (ttsSupported && autoSpeak) {
-        speak(reply);
+        speak(replyText);
       }
     } catch (err) {
       const assistantMsg: ChatMessage = {

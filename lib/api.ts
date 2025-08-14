@@ -1,5 +1,4 @@
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === '1' || !BACKEND_URL;
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === '1';
 
 export async function getAssistantResponse(userText: string): Promise<string> {
   if (USE_MOCK) {
@@ -8,9 +7,9 @@ export async function getAssistantResponse(userText: string): Promise<string> {
   }
 
   try {
-    const res = await fetch(`${BACKEND_URL}`.replace(/\/$/, ''), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: userText })
     });
     if (!res.ok) {

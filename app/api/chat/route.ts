@@ -1,9 +1,5 @@
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const { message } = req.body;
+export async function POST(req: Request) {
+  const { message } = await req.json();
 
   try {
     const response = await fetch("https://api.sea-lion.ai/v1/chat/completions", {
@@ -44,20 +40,27 @@ export default async function handler(req, res) {
     const data = await response.json();
     let content = data.choices[0].message.content || "";
 
-    // Extract and parse JSON safely
+    // Extract JSON safely
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        content = parsed.response || content; // Only keep the "response" field
+        content = parsed.response || content;
       }
     } catch (e) {
       console.warn("Failed to parse JSON, returning raw output.");
     }
 
-    res.status(200).json({ reply: content });
+    return new Response(JSON.stringify({ reply: content }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+
   } catch (error) {
     console.error("Error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }

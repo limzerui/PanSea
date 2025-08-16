@@ -2,10 +2,20 @@
 interface LoginInfo {
     email: string;
     username: string; // same as email
-    password: string;
+    // password requirements: Your password should EITHER be 
+    // 1. >= 10 characters & contain mixed numbers and both upper & lower case letters and >= one special character
+    // 2. the length should be > 16 and <= 512.
+    password: string; 
     first_name: string;
     last_name: string;
 }
+
+export enum SUPPORTED_BANK {
+    BANKA = "banka",
+    BANKB = "bankb",
+    BANKC = "bankC"
+}
+
 // my self-hosted api :)
 const MY_API_HOST = "https://obp-api-production-bd77.up.railway.app"
 
@@ -15,12 +25,10 @@ const MY_API_HOST = "https://obp-api-production-bd77.up.railway.app"
 export async function loginToSandbox(username: string, password: string): Promise<string> {
     const response = await fetch(MY_API_HOST + "/my/logins/direct", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({directLogin: {
-            username: username + Math.random().toString(36).substring(0, 8),
-            password: password,
-            consumer_key: process.env.SANDBOX_CONSUMER_KEY
-        }})
+        headers: { 
+            "Content-Type": "application/json",
+            "directlogin": `username=${username},password=${password},consumer_key=${process.env.MY_API_CONSUMER_KEY}`
+        }
     });
     if (!response.ok) {
         const data = await response.json().catch(() => ({message: ''}));
@@ -53,8 +61,8 @@ export async function createSandboxUser(loginInfo: LoginInfo, loginToken: string
 // returns a bank account id for the specific bank
 // current available bank ids: banka, bankb, bankC (accidentally capitalised the last one oops)
 // names: Bank of A, Bank of B, Bank of C
-export async function createBankAccount(user_id: string, bank_id: string, loginToken: string): Promise<string> {
-    const response = await fetch(`${MY_API_HOST}/obp/v5.1.0/banks/${bank_id}/accounts`, {
+export async function createBankAccount(user_id: string, bank: SUPPORTED_BANK, loginToken: string): Promise<string> {
+    const response = await fetch(`${MY_API_HOST}/obp/v5.1.0/banks/${bank}/accounts`, {
         method: "POST",
         headers: { 
             "Content-Type": "application/json",
@@ -86,17 +94,17 @@ export async function createBankAccount(user_id: string, bank_id: string, loginT
     return data.account_id;
 }
 
-// For now stick to transactions <= 999
+// For now stick to transaction amounts < 1000 (999.99 works, but 1000 will have some other behaviour)
 // Balance of any account can be artificially 
-// increased by using the same from_ids and to_ids
+// increased by using the same from_ids and to_ids (and same banks)
 // returns "COMPLETED" if transaction is successful - it should return completed instantly
 export async function makeTransaction(
-    from_bank_id: string, from_account_id: string, 
-    to_bank_id: string, to_account_id: string, 
+    from_bank: SUPPORTED_BANK, from_account_id: string, 
+    to_bank: SUPPORTED_BANK, to_account_id: string, 
     description: string, amount: Number, 
     loginToken: string
 ): Promise<string> {
-    const response = await fetch(`${MY_API_HOST}/obp/v5.1.0/banks/${from_bank_id}/accounts/${from_account_id}/owner/transaction-request-types/SANDBOX_TAN/transaction-requests`, {
+    const response = await fetch(`${MY_API_HOST}/obp/v5.1.0/banks/${from_bank}/accounts/${from_account_id}/owner/transaction-request-types/SANDBOX_TAN/transaction-requests`, {
         method: "POST",
         headers: { 
             "Content-Type": "application/json",
@@ -104,7 +112,7 @@ export async function makeTransaction(
         },
         body: JSON.stringify({
             to: {
-                bank_id: to_bank_id,
+                bank_id: to_bank,
                 account_id: to_account_id
             },
             value: {

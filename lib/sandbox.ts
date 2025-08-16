@@ -66,7 +66,7 @@ export async function createBankAccount(user_id: string, bank_id: string, loginT
             product_code: "1234BW",
             balance: {
                 currency: "SGD",
-                amount: 0
+                amount: 0 // Must be 0 for account creation
             },
             branch_id: "DERBY6",
             account_routings: [
@@ -85,3 +85,41 @@ export async function createBankAccount(user_id: string, bank_id: string, loginT
     const data = await response.json();
     return data.account_id;
 }
+
+// For now stick to transactions <= 999
+// Balance of any account can be artificially 
+// increased by using the same from_ids and to_ids
+// returns "COMPLETED" if transaction is successful - it should return completed instantly
+export async function makeTransaction(
+    from_bank_id: string, from_account_id: string, 
+    to_bank_id: string, to_account_id: string, 
+    description: string, amount: Number, 
+    loginToken: string
+): Promise<string> {
+    const response = await fetch(`${MY_API_HOST}/obp/v5.1.0/banks/${from_bank_id}/accounts/${from_account_id}/owner/transaction-request-types/SANDBOX_TAN/transaction-requests`, {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "directlogin": `token=${loginToken}` 
+        },
+        body: JSON.stringify({
+            to: {
+                bank_id: to_bank_id,
+                account_id: to_account_id
+            },
+            value: {
+                currency: "SGD",
+                amount: `${amount}`
+            },
+            description: description
+        })
+    });
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({message: ''}));
+        console.log(data.message);
+        throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    return data.status;
+}
+

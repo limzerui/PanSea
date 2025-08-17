@@ -29,7 +29,7 @@ export async function POST(req: Request) {
         - If loginToken is available in context, use it; if not, set it to null
         - If users want to transfer money, they are only allowed to transfer money to the accounts listed below. Inform them of the sample recipient
         names and banks if they ask to transfer money. 
-        - Transfer action is only allowed after creating a bank account.
+        - Transfer action is ONLY allowed AFTER creating a bank account.
         - Deposit and Withdrawals are not a supported action, all users start with some money in their account.
 
         Your return content format MUST be exactly this structure:
@@ -63,10 +63,11 @@ export async function POST(req: Request) {
         - RESPOND WITH ONLY JSON - nothing else
         - ALWAYS include login_token from context in parameters
         - Include "parameters" with ALL values the user has given you
-        - If a value is missing, use null in "parameters"
+        - If a value is missing, use null in "parameters".
         - Do NOT remove keys from "parameters" — always include them
         - If all required fields are present, proceed without asking again
         - If any required field is missing, clearly ask for it in "response". Use a human-readable name for response but store it by its internal name.
+        - If transfer amount exceeds 500 SGD, ask for a confirmationn from the user before proceeding.
 
         BANK RESTRICTIONS (ENFORCED):
         - ONLY these 3 banks are supported: "banka", "bankb", "bankC"
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
         - Store the account id and bank id that the user creates in memory but do not repeat to user. DO NOT FORGET THIS.
 
         TRANSFER RESTRICTIONS (ENFORCED):
-        - When user asks to transfer money, list the owner name and bank name as according to the list of valid destination accounts. 
+        - When user asks to transfer money, include a list of the owner names and bank names as according to the list of valid destination accounts in the response. 
          Inform them that these are the only valid destination accounts. 
         - ONLY ask for recipient name, recipient bank and transfer amount. DO NOT ask for any other parameters. All other parameters should be obtainable
         through the name to account mapping.

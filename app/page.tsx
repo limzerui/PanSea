@@ -81,16 +81,7 @@ export default function Page() {
                 <em>Example:</em> "Transfer $500 from Bank A to Bank B"
               </p>
             </div>
-            
-            <div className="card">
-              <h4 style={{ margin: '0 0 8px 0', color: 'var(--accent)' }}>Deposit/Withdraw</h4>
-              <p style={{ margin: 0, fontSize: 14, color: 'var(--muted)' }}>
-                <strong>Required:</strong> Bank, Account, Amount
-              </p>
-              <p style={{ margin: '8px 0 0 0', fontSize: 13, color: 'var(--muted)' }}>
-                <em>Example:</em> "Deposit $1000 to my Bank A account" or "Withdraw $200 from Bank B"
-              </p>
-            </div>
+          
             
             <div className="card">
               <h4 style={{ margin: '0 0 8px 0', color: 'var(--accent)' }}>Simple Greeting</h4>

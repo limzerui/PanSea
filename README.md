@@ -10,8 +10,8 @@ A chat-based banking assistant powered by an LLM, connected to a sandbox bank AP
 - Provides a conversational interface for everyday banking, reducing the need for complex app navigation  
 - Supports key operations to mimic real banking:  
   - Account creation → onboard new users quickly  
-  - Deposits → add funds easily  
-  - Withdrawals → access funds on demand  
+  - Deposits → add funds easily (Not supported currently) 
+  - Withdrawals → access funds on demand (Not supported currently)
   - Transfers → move money between accounts instantly  
 - Understands and responds in multiple Southeast Asian languages (English, Bahasa Indonesia, Tagalog, Thai, Vietnamese), making banking more inclusive and accessible  
 - Automatically validates and asks for missing details, ensuring smooth and error-free transactions  

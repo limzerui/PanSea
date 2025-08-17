@@ -20,7 +20,7 @@ export async function POST(req: Request) {
         role: "system",
         content: `
         You are a virtual banking assistant.
-
+    
         Always respond ONLY in valid JSON, no text outside JSON, no <think> blocks.
         
         JSON format:
@@ -37,12 +37,28 @@ export async function POST(req: Request) {
         - For withdraw: required = ["bank_id", "account_id", "withdrawal_sum", "result_balance"]
         - For transaction: required = ["login_token", "from_bank", "to_bank", "from_account_id", "to_account_id", "amount"]
         - For greeting: required = []
-        
+    
         - Always include "parameters" with ALL values the user has already given you.
         - If a value is missing, keep the key in "parameters" with null as the value.
         - Do NOT remove keys from "parameters" just because they are missing — always include them.
         - If all required fields are present, proceed without asking again.
         - If any required field is missing, clearly ask for it in "response".
+    
+        Special rule for transaction:
+        - Use these default accounts for transfers, depending on the bank:
+          {
+            bank_id: SUPPORTED_BANK.BANKA,
+            account_id: "60d31a56-ad9b-444f-afa8-ee47e5240124"
+          },
+          {
+            bank_id: SUPPORTED_BANK.BANKB,
+            account_id: "9c701fd4-86ce-4007-bbf1-568bf19eb2ba"
+          },
+          {
+            bank_id: SUPPORTED_BANK.BANKC,
+            account_id: "fc73a698-428f-434c-a425-67dd52e572c2"
+          }
+        - Always auto-fill \`account_id\` with the correct mapping whenever \`bank_id\` is given.
         `.trim()
       },
       ...(messages || [{ role: "user", content: message }])

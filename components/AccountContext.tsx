@@ -1,5 +1,10 @@
 'use client'
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
+import { loginToSandbox, createSandboxUser } from "@/lib/sandbox";
+import type { LoginInfo } from "@/lib/sandbox";
+
+const ADMIN_USERNAME = "AlbertDing123";
+const ADMIN_PASSWORD = "Fieryzk9631!";
 
 type AccountContextType = {
   loginToken: string | null;
@@ -16,6 +21,32 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [userId, setUserId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [loginToken, setLoginToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const autoSetup = async () => {
+      try {
+        // Auto-login admin
+        const token = await loginToSandbox(ADMIN_USERNAME, ADMIN_PASSWORD);
+        setLoginToken(token);
+        
+        // Create default user
+        const defaultUser: LoginInfo = {
+          email: "user@example.com",
+          username: "user@example.com",
+          password: "Password123!",
+          first_name: "Default",
+          last_name: "User"
+        };
+        
+        const newUserId = await createSandboxUser(defaultUser, token);
+        setUserId(newUserId);
+      } catch (error) {
+        console.error("Auto-setup failed:", error);
+      }
+    };
+    
+    autoSetup();
+  }, []);
 
   return (
     <AccountContext.Provider value={{ loginToken, userId, accountId, setLoginToken, setUserId, setAccountId }}>

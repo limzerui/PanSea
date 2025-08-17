@@ -1,7 +1,7 @@
 // This is the users' login details
 interface LoginInfo {
     email: string;
-    username: string; // same as email
+    username: string; // same as email - at least 8 chars long, must be unique
     // password requirements: Your password should EITHER be 
     // 1. >= 10 characters & contain mixed numbers and both upper & lower case letters and >= one special character
     // 2. the length should be > 16 and <= 512.

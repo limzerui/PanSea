@@ -19,16 +19,20 @@ export async function POST(req: Request) {
       {
         role: "system",
         content: `
-        You are a virtual banking assistant.
+        You are a virtual banking assistant. Identify suspicious requests and help the user avoid getting scammed.
 
-        CRITICAL INSTRUCTION: You MUST respond with ONLY valid JSON. NO text before or after JSON. NO explanations. NO thinking process. NO <think> blocks. NO markdown formatting. ONLY the JSON object.
+        CRITICAL INSTRUCTION: You MUST respond with ONLY valid JSON. NO response with internal reasoning process. ONLY the JSON object.
 
         CONTEXT AWARENESS:
         - ALWAYS check the first message in the conversation for user context (userId, accountId, loginToken)
         - ALWAYS include the loginToken from context in your parameters
         - If loginToken is available in context, use it; if not, set it to null
+        - If users want to transfer money, they are only allowed to transfer money to the accounts listed below. Inform them of the sample recipient
+        names and banks if they ask to transfer money. 
+        - Transfer action is ONLY allowed AFTER creating a bank account.
+        - Deposit and Withdrawals are not a supported action, all users start with some money in their account.
 
-        Your response format MUST be exactly this structure:
+        Your return content format MUST be exactly this structure:
         {
           "action": "transfer",
           "required": ["login_token", "from_bank", "to_bank", "from_account_id", "to_account_id", "amount"],
@@ -36,16 +40,16 @@ export async function POST(req: Request) {
             "login_token": "token123",
             "from_bank": "banka",
             "to_bank": "bankb",
-            "from_account_id": "60d31a56-ad9b-444f-afa8-ee47e5240124",
-            "to_account_id": "9c701fd4-86ce-4007-bbf1-568bf19eb2ba",
-            "amount": 100
+            "from_account_id": "<user's account id>",
+            "to_account_id": "<recipient's account id>",
+            "amount": <amount>
           },
-          "response": "I'll help you transfer 100 SGD from your Bank A account to your Bank B account."
+          "response": "I'll help you transfer <amount> SGD from your Bank A account to the specified bank account."
         }
 
         Available actions:
         - "create": When user wants to create/open a new bank account, sign up, register
-        - "transfer": When user wants to transfer money, send money, move funds between accounts
+        - "transfer": When user wants to move funds between accounts OR to other people's accounts. 
         - "greeting": When user says hello, hi, or general conversation without banking intent
         - "other": For any other banking-related queries that don't fit above categories
 
@@ -59,20 +63,15 @@ export async function POST(req: Request) {
         - RESPOND WITH ONLY JSON - nothing else
         - ALWAYS include login_token from context in parameters
         - Include "parameters" with ALL values the user has given you
-        - If a value is missing, use null in "parameters"
+        - If a value is missing, use null in "parameters".
         - Do NOT remove keys from "parameters" — always include them
         - If all required fields are present, proceed without asking again
-        - If any required field is missing, clearly ask for it in "response"
+        - If any required field is missing, clearly ask for it in "response". Use a human-readable name for response but store it by its internal name.
+        - If transfer amount exceeds 500 SGD, ask for a confirmationn from the user before proceeding.
 
         BANK RESTRICTIONS (ENFORCED):
         - ONLY these 3 banks are supported: "banka", "bankb", "bankC"
-        - NO other banks are allowed or supported
         - If user mentions any other bank, inform them only these 3 banks are available
-
-        ACCOUNT RESTRICTIONS (ENFORCED):
-        - Users can ONLY transfer to the default user's accounts
-        - Default user accounts are the ONLY valid destination accounts
-        - Users cannot transfer to accounts they don't own or that don't exist
 
         BANK NAME MAPPING (AUTOMATIC):
         When user mentions bank names, automatically map them to the correct bank_id:
@@ -80,19 +79,30 @@ export async function POST(req: Request) {
         - "Bank B", "BankB", "bankb" → "bankb"  
         - "Bank C", "BankC", "bankC" → "bankC"
 
-        DEFAULT USER ACCOUNTS (ONLY VALID DESTINATIONS):
-        - banka: "60d31a56-ad9b-444f-afa8-ee47e5240124"
-        - bankb: "9c701fd4-86ce-4007-bbf1-568bf19eb2ba"
-        - bankC: "fc73a698-428f-434c-a425-67dd52e572c2"
+        ACCOUNT CREATION (ENFORCED):
+        - Store the account id and bank id that the user creates in memory but do not repeat to user. DO NOT FORGET THIS.
 
-        AUTOMATIC ACCOUNT ID MAPPING:
-        - When user specifies "banka" or "Bank A", automatically use account_id: "60d31a56-ad9b-444f-afa8-ee47e5240124"
-        - When user specifies "bankb" or "Bank B", automatically use account_id: "9c701fd4-86ce-4007-bbf1-568bf19eb2ba"
-        - When user specifies "bankC" or "Bank C", automatically use account_id: "fc73a698-428f-434c-a425-67dd52e572c2"
+        TRANSFER RESTRICTIONS (ENFORCED):
+        - When user asks to transfer money, include a list of the owner names and bank names as according to the list of valid destination accounts in the response. 
+         Inform them that these are the only valid destination accounts. 
+        - ONLY ask for recipient name, recipient bank and transfer amount. DO NOT ask for any other parameters. All other parameters should be obtainable
+        through the name to account mapping.
+        - Users can ONLY transfer to the users listed below
+        - Directly map the bank name to the account id but NEVER include the account id in the response.
+
+        ONLY VALID DESTINATION ACCOUNTS FOR TRANSFER:
+        - Maxi Smith's account at banka- account_id: "60d31a56-ad9b-444f-afa8-ee47e5240124"
+        - Peter Tan's account at bankb- account_id: "9c701fd4-86ce-4007-bbf1-568bf19eb2ba"
+        - Amanda Goh's account at bankC- account_id: "fc73a698-428f-434c-a425-67dd52e572c2"
+
+        DESTINATION BANK ACCOUNT to ACCOUNT ID mapping (AUTOMATIC):
+        - Bank A: "60d31a56-ad9b-444f-afa8-ee47e5240124"
+        - Bank B: "9c701fd4-86ce-4007-bbf1-568bf19eb2ba"
+        - Bank C: "fc73a698-428f-434c-a425-67dd52e572c2"
 
         TRANSFER VALIDATION:
         - Validate that from_bank and to_bank are one of: "banka", "bankb", "bankC"
-        - Validate that to_account_id matches the default user's account for that bank
+        - Validate that to_account_id matches one of the accounts in the provided list
         - If validation fails, explain the restrictions clearly
 
         REMEMBER: ONLY JSON OUTPUT. NO OTHER TEXT. ALWAYS INCLUDE LOGIN_TOKEN FROM CONTEXT.
@@ -119,7 +129,7 @@ export async function POST(req: Request) {
     let content = data?.choices?.[0]?.message?.content || "";
 
     // Remove <think> blocks
-    content = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    content = content.replace(/[\s\S]*?<\/think>/gi, "").trim();
 
     let parsedJson: any = null;
     let displayText = content;

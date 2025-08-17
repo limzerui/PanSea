@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         }
         
         Rules:
-        - For create: required = ["bank_id", "account_id", "result_balance"]
+        - For create: required = ["login_token", "email", "password", "first_name", "last_name", "bank_id"]
         - For deposit: required = ["bank_id", "account_id", "deposit_sum", "result_balance"]
         - For withdraw: required = ["bank_id", "account_id", "withdrawal_sum", "result_balance"]
         - For transaction: required = ["bank_id", "account_id", "target_account", "transfer_sum", "result_balance"]
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
           ["create", "deposit", "withdraw", "transaction"].includes(parsedJson.action)
         ) {
           const missingFields = parsedJson.required.filter(
-            field => !(field in parsedJson.parameters) || parsedJson.parameters[field] == null
+            (field: string) => !(field in parsedJson.parameters) || parsedJson.parameters[field] == null
           );
 
           if (missingFields.length > 0) {
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
       Array.isArray(parsedJson.required) &&
       parsedJson.parameters &&
       parsedJson.required.every(
-        field =>
+        (field: string) =>
           field in parsedJson.parameters &&
           parsedJson.parameters[field] !== null &&
           parsedJson.parameters[field] !== ""

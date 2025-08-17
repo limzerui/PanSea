@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { getAssistantResponse } from '@/lib/api';
+import { useAccountContext } from './AccountContext';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -22,6 +23,7 @@ export default function VoiceChat() {
   const [autoSpeak, setAutoSpeak] = useState<boolean>(true);
   const [recLang, setRecLang] = useState<string>('en-US');
   const [maxAlt, setMaxAlt] = useState<number>(1);
+  const { userId, accountId, loginToken } = useAccountContext();
 
   const {
     isSupported: sttSupported,
@@ -65,12 +67,22 @@ export default function VoiceChat() {
     setIsSending(true);
     try {
       // 1) Convert UI state to API message shape
+      const contextMsg: WireMsg = {
+        role: "user",
+        content: JSON.stringify({
+          userId,
+          accountId,
+          loginToken
+        })
+      };
+
       const historyForApi: WireMsg[] = [
+        contextMsg,
         ...messages.map(m => ({ role: m.role, content: m.text })),
         { role: 'user', content: trimmed },
       ];
   
-
+      // max 16 msgs in history, actually why?
       const trimmedHistory = trimHistory(historyForApi, { maxTurns: 16 });
       
   
@@ -86,6 +98,7 @@ export default function VoiceChat() {
   
       if (ttsSupported && autoSpeak) speak(replyText);
     } catch (err) {
+      console.error("Error getting assistant response:", err);
       const assistantMsg: ChatMessage = {
         id: generateId('asst'),
         role: 'assistant',
@@ -172,33 +185,13 @@ export default function VoiceChat() {
             <span>{sttStatus.label}</span>
           </div>
           <div className="row" style={{ gap: 8 }}>
-            <select className="input" style={{ width: 160 }} value={recLang} onChange={(e) => setRecLang(e.target.value)}>
-              <option value="en-US">English (US)</option>
-              <option value="en-GB">English (UK)</option>
-              <option value="en-SG">English (SG)</option>
-              <option value="en-AU">English (AU)</option>
-              <option value="zh-CN">中文 (简体)</option>
-              <option value="zh-TW">中文 (繁體)</option>
-              <option value="ja-JP">日本語</option>
-              <option value="ko-KR">한국어</option>
-              <option value="es-ES">Español (ES)</option>
-              <option value="es-MX">Español (MX)</option>
-              <option value="fr-FR">Français</option>
-              <option value="de-DE">Deutsch</option>
-            </select>
-
-            <select className="input" style={{ width: 140 }} value={String(maxAlt)} onChange={(e) => setMaxAlt(Number(e.target.value))}>
-              <option value="1">1 alt</option>
-              <option value="2">2 alts</option>
-              <option value="3">3 alts</option>
-            </select>
             <label className="row" style={{ gap: 8 }}>
               <input
                 type="checkbox"
                 checked={autoSpeak}
                 onChange={(e) => setAutoSpeak(e.target.checked)}
               />
-              <span>Auto-speak assistant</span>
+              <span>Auto-speak responses</span>
             </label>
             {ttsSupported && (
               <select
@@ -229,9 +222,9 @@ export default function VoiceChat() {
             className="button"
             onClick={handleMicToggle}
             disabled={!sttSupported}
-            title={sttSupported ? 'Start/Stop microphone (Web Speech API)' : 'Your browser does not support speech recognition'}
+            title={sttSupported ? 'Start/Stop microphone for voice banking' : 'Your browser does not support speech recognition'}
           >
-            {isListening ? 'Stop' : 'Start'} Mic
+            {isListening ? 'Stop Mic' : 'Start Mic'}
           </button>
 
           <button
@@ -240,9 +233,9 @@ export default function VoiceChat() {
             onPointerUp={() => { if (isListening) { stopListening(); } }}
             onPointerCancel={() => { if (isListening) { stopListening(); } }}
             disabled={!sttSupported}
-            title="Hold to talk"
+            title="Press and hold to speak your banking request"
           >
-            Hold to talk
+            Hold to Talk
           </button>
 
           <button
@@ -259,9 +252,9 @@ export default function VoiceChat() {
             className="button ghost"
             onClick={handleReplay}
             disabled={!ttsSupported || isSpeaking}
-            title={ttsSupported ? 'Replay last assistant message' : 'Your browser does not support speech synthesis'}
+            title={ttsSupported ? 'Replay last banking response' : 'Your browser does not support speech synthesis'}
           >
-            Replay last reply
+            Replay last response
           </button>
 
           <button className="button danger" onClick={cancel} disabled={!ttsSupported || !isSpeaking}>
@@ -273,7 +266,7 @@ export default function VoiceChat() {
       {/* Input area */}
       <div className="panel stack">
         <div className="stack">
-          <label>Speak or type your message</label>
+          <label>Speak or type your banking request</label>
           <textarea
             className="input"
             rows={3}
@@ -284,14 +277,14 @@ export default function VoiceChat() {
         </div>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <span style={{ color: 'var(--muted)', fontSize: 13 }}>
-            {sttSupported ? 'Live transcript updates while listening.' : 'Your browser does not support speech recognition.'}
+            {sttSupported ? 'Live transcript updates while speaking. Speak naturally about what you want to do.' : 'Your browser does not support speech recognition.'}
           </span>
           <button
             className="button"
             onClick={() => handleSend(inputText || interimTranscript)}
             disabled={isSending || (!inputText && !interimTranscript)}
           >
-            {isSending ? 'Sending…' : 'Send'}
+            {isSending ? 'Processing...' : 'Send Request'}
           </button>
         </div>
       </div>
@@ -299,9 +292,9 @@ export default function VoiceChat() {
       {/* Conversation */}
       <div className="panel stack">
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <strong>Conversation</strong>
+          <strong>Banking Conversation</strong>
           <button className="button ghost" onClick={() => setMessages([])} disabled={messages.length === 0}>
-            Clear
+            Clear history
           </button>
         </div>
         <div className="stack">
@@ -315,7 +308,7 @@ export default function VoiceChat() {
               background: m.role === 'user' ? 'rgba(108, 174, 255, 0.09)' : 'rgba(139,92,246,0.09)'
             }}>
               <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span style={{ opacity: 0.8 }}>{m.role === 'user' ? 'You' : 'Assistant'}</span>
+                <span style={{ opacity: 0.8 }}>{m.role === 'user' ? 'You' : 'Banking Assistant'}</span>
                 {m.role === 'assistant' && (
                   <div className="row" style={{ gap: 8 }}>
                     <button className="button secondary" onClick={() => speak(m.text)} disabled={!ttsSupported}>

@@ -23,7 +23,7 @@ export default function VoiceChat() {
   const [autoSpeak, setAutoSpeak] = useState<boolean>(true);
   const [recLang, setRecLang] = useState<string>('en-US');
   const [maxAlt, setMaxAlt] = useState<number>(1);
-  const { userId, accountId, loginToken } = useAccountContext();
+  const { userId, accountId, loginToken, setAccountId } = useAccountContext();
 
   const {
     isSupported: sttSupported,
@@ -90,13 +90,17 @@ export default function VoiceChat() {
       const replyText = await getAssistantResponse(
         Array.isArray(trimmedHistory) ? trimmedHistory : []
       );
-  
+
+      if (replyText.accountId) {
+        setAccountId(replyText.accountId);
+      }
+
       // 4) Append assistant reply to UI
-      const assistantMsg: ChatMessage = { id: generateId('asst'), role: 'assistant', text: replyText };
+      const assistantMsg: ChatMessage = { id: generateId('asst'), role: 'assistant', text: replyText.response };
       lastAssistantMsgIdRef.current = assistantMsg.id;
       setMessages(prev => [...prev, assistantMsg]);
   
-      if (ttsSupported && autoSpeak) speak(replyText);
+      if (ttsSupported && autoSpeak) speak(replyText.response);
     } catch (err) {
       console.error("Error getting assistant response:", err);
       const assistantMsg: ChatMessage = {

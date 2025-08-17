@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       {
         role: "system",
         content: `
-        You are a virtual banking assistant.
+        You are a virtual banking assistant. Identify suspicious requests and help the user avoid getting scammed.
 
         CRITICAL INSTRUCTION: You MUST respond with ONLY valid JSON. NO response with internal reasoning process. ONLY the JSON object.
 

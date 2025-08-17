@@ -115,7 +115,7 @@ export async function createBankAccount(user_id: string, bank: SUPPORTED_BANK, l
 export async function makeTransaction(
     from_bank: SUPPORTED_BANK, from_account_id: string, 
     to_bank: SUPPORTED_BANK, to_account_id: string, 
-    description: string, amount: Number, 
+    amount: Number, 
     loginToken: string
 ): Promise<string> {
     const response = await fetch(`${MY_API_HOST}/obp/v5.1.0/banks/${from_bank}/accounts/${from_account_id}/owner/transaction-request-types/SANDBOX_TAN/transaction-requests`, {
@@ -133,7 +133,7 @@ export async function makeTransaction(
                 currency: "SGD",
                 amount: `${amount}`
             },
-            description: description
+            description: "transfer"
         })
     });
     if (!response.ok) {

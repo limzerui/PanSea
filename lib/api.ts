@@ -1,5 +1,5 @@
 import { create } from "./services";
-import { LoginInfo } from "./sandbox";
+import { LoginInfo, makeTransaction, SUPPORTED_BANK } from "./sandbox";
 
 // types
 type Msg = { role: "user" | "assistant"; content: string };
@@ -78,6 +78,56 @@ export async function getAssistantResponse(history: Msg[]): Promise<{accountId?:
           if (!createError) {
             return { accountId: newAccountId, response: response};
           }
+          return { response: response };
+        } else if (action == "transfer") {
+          // Validate required fields for transfer
+          const requiredFields = ["from_bank", "from_account_id", "to_bank", "to_account_id", "amount", "login_token"];
+          const missingFields = requiredFields.filter(field => !parsed.parameters[field]);
+          if (missingFields.length > 0) {
+            // Return a direct user-friendly message instead of making another API call
+            return { 
+              response: `I need some additional information to complete your transfer. Please provide the following missing details: ${missingFields.join(", ")}. You can provide this information in your next message.`
+            };
+          }
+
+          // Validate bank names are supported
+          const supportedBanks = Object.values(SUPPORTED_BANK);
+          const fromBank = parsed.parameters.from_bank;
+          const toBank = parsed.parameters.to_bank;
+          
+          if (!supportedBanks.includes(fromBank) || !supportedBanks.includes(toBank)) {
+            return {
+              response: `Invalid bank name. Supported banks are: ${supportedBanks.join(", ")}. Please provide valid bank names.`
+            };
+          }
+
+          let transferStatus = "";
+          let transferError = null;
+          try {
+            transferStatus = await makeTransaction(
+              fromBank as SUPPORTED_BANK,
+              parsed.parameters.from_account_id,
+              toBank as SUPPORTED_BANK,
+              parsed.parameters.to_account_id,
+              parsed.parameters.amount,
+              parsed.parameters.login_token
+            );
+          } catch (err) {
+            transferError = err;
+          }
+
+          const followUpHistory: Msg[] = [
+            ...safeHistory,
+            { role: "assistant", content: raw },
+            {
+              role: "user",
+              content: transferError
+                ? `The user requested a transfer action. The backend failed to complete the transfer from ${fromBank} account ${parsed.parameters.from_account_id} to ${toBank} account ${parsed.parameters.to_account_id} for amount ${parsed.parameters.amount}. Error: ${transferError}. Generate a clear, friendly message to the user explaining the failure and possible next steps.`
+                : `The user requested a transfer action. The backend has successfully completed the transfer from ${fromBank} account ${parsed.parameters.from_account_id} to ${toBank} account ${parsed.parameters.to_account_id} for amount ${parsed.parameters.amount}. Status: ${transferStatus}. Generate a clear, friendly message to the user summarizing the result.`
+            }
+          ];
+
+          const response = (await getAssistantResponse(followUpHistory)).response;
           return { response: response };
         }
         // ...handle other actions...

@@ -35,7 +35,7 @@ export async function POST(req: Request) {
         - For create: required = ["login_token", "email", "password", "first_name", "last_name", "bank_id"]
         - For deposit: required = ["bank_id", "account_id", "deposit_sum", "result_balance"]
         - For withdraw: required = ["bank_id", "account_id", "withdrawal_sum", "result_balance"]
-        - For transaction: required = ["bank_id", "account_id", "target_account", "transfer_sum", "result_balance"]
+        - For transaction: required = ["login_token", "from_bank", "to_bank", "from_account_id", "to_account_id", "amount"]
         - For greeting: required = []
         
         - Always include "parameters" with ALL values the user has already given you.

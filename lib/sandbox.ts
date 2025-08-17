@@ -36,8 +36,8 @@ export async function loginToSandbox(username: string, password: string): Promis
     });
     if (!response.ok) {
         const data = await response.json().catch(() => ({message: ''}));
-        console.log(data.message);
-        throw new Error(`HTTP ${response.status}`);
+        console.error("Sandbox login failed:", response.status, data.message); // console logging instead of throwing to frontend
+        return "";
     }
     const data = await response.json()
     return data.token;

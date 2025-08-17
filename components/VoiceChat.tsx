@@ -82,7 +82,7 @@ export default function VoiceChat() {
         { role: 'user', content: trimmed },
       ];
   
-      // max 16 msgs in history, actually why?
+      // max 16 msgs in history so that the ai can see the context of the conversation (without being too slow)
       const trimmedHistory = trimHistory(historyForApi, { maxTurns: 16 });
       
   
@@ -307,7 +307,7 @@ export default function VoiceChat() {
               Say something with the mic, or type a message, then send.
             </div>
           )}
-          {messages.map((m) => (
+          {[...messages].reverse().map((m) => (
             <div key={m.id} className="card" style={{
               background: m.role === 'user' ? 'rgba(108, 174, 255, 0.09)' : 'rgba(139,92,246,0.09)'
             }}>

@@ -1,6 +1,29 @@
+'use client'
+import { useAccountContext } from '@/components/AccountContext';
 import VoiceChat from '@/components/VoiceChat';
+import { loginToSandbox } from '@/lib/sandbox';
+import { useEffect } from 'react';
 
 export default function Page() {
+  const { setLoginToken, } = useAccountContext();
+  const ADMIN_USERNAME = "AlbertDing123";
+  const ADMIN_PASSWORD = "Fieryzk9631!";
+
+  useEffect(() => {
+    const setup = async () => {
+      // Example: login and create user/account
+      const token = await loginToSandbox(ADMIN_USERNAME, ADMIN_PASSWORD);
+      setLoginToken(token);
+
+      // If you want to create a user/account here, call your API and set IDs:
+      // const userId = await createUser(...);
+      // setUserId(userId);
+      // const accountId = await createAccount(userId, ...);
+      // setAccountId(accountId);
+    };
+    setup();
+  }, []);
+  
   return (
     <main className="container">
       <div className="header">

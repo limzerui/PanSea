@@ -41,57 +41,67 @@ export async function loginToSandbox(username: string, password: string): Promis
 
 // returns a user_id 
 export async function createSandboxUser(loginInfo: LoginInfo, loginToken: string): Promise<string> {
-    const response = await fetch(MY_API_HOST + "/obp/v4.0.0/users", {
-        method: "POST",
-        headers: { 
+    try {
+        const response = await fetch(MY_API_HOST + "/obp/v4.0.0/users", {
+            method: "POST",
+            headers: { 
             "Content-Type": "application/json",
             "directlogin": `token=${loginToken}` 
-        },
-        body: JSON.stringify(loginInfo)
-    })
+            },
+            body: JSON.stringify(loginInfo)
+        });
     if (!response.ok) {
         const data = await response.json().catch(() => ({message: ''}));
         console.log(data.message);
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(`HTTP ${response.status}: ${data.message}`);
     }
-    const data = await response.json();
-    return data.user_id;
+        const data = await response.json();
+        return data.user_id;
+    } catch (error) {
+        console.error("Error creating sandbox user:", error);
+        throw error; // or return a default value/null if you prefer
+    }
 }
 
 // returns a bank account id for the specific bank
 // current available bank ids: banka, bankb, bankC (accidentally capitalised the last one oops)
 // names: Bank of A, Bank of B, Bank of C
 export async function createBankAccount(user_id: string, bank: SUPPORTED_BANK, loginToken: string): Promise<string> {
-    const response = await fetch(`${MY_API_HOST}/obp/v5.1.0/banks/${bank}/accounts`, {
-        method: "POST",
-        headers: { 
-            "Content-Type": "application/json",
-            "directlogin": `token=${loginToken}` 
-        },
-        body: JSON.stringify({
-            user_id: user_id,
-            label: "My Account",
-            product_code: "1234BW",
-            balance: {
-                currency: "SGD",
-                amount: 0 // Must be 0 for account creation
+    try {
+        const response = await fetch(`${MY_API_HOST}/obp/v5.1.0/banks/${bank}/accounts`, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "directlogin": `token=${loginToken}` 
             },
-            branch_id: "DERBY6",
-            account_routings: [
-                {
-                    scheme: "OBP",
-                    address: crypto.randomUUID()
-                }
-            ]
-        })
-    });
-    if (!response.ok) {
-        const data = await response.json().catch(() => ({message: ''}));
-        console.log(data.message);
-        throw new Error(`HTTP ${response.status}`);
+            body: JSON.stringify({
+                user_id: user_id,
+                label: "My Account",
+                product_code: "1234BW",
+                balance: {
+                    currency: "SGD",
+                    amount: 0 // Must be 0 for account creation
+                },
+                branch_id: "DERBY6",
+                account_routings: [
+                    {
+                        scheme: "OBP",
+                        address: crypto.randomUUID()
+                    }
+                ]
+            })
+        });
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({message: ''}));
+            console.log(data.message);
+            throw new Error(`HTTP ${response.status}: ${data.message}`);
+        }
+        const data = await response.json();
+        return data.account_id;
+    } catch (error) {
+        console.error("Error creating bank account:", error);
+        throw error;
     }
-    const data = await response.json();
-    return data.account_id;
 }
 
 // For now stick to transaction amounts < 1000 (999.99 works, but 1000 will have some other behaviour)

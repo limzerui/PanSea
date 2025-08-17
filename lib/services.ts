@@ -14,11 +14,12 @@ export async function create(
   bank: SUPPORTED_BANK,
   loginToken: string
 ): Promise<string> {
-  // Step 1: Create the sandbox user
-  const userId = await createSandboxUser(loginInfo, loginToken);
-
-  // Step 2: Create the bank account for the user
-  const accountId = await createBankAccount(userId, bank, loginToken);
-
-  return accountId;
+  try {
+    const userId = await createSandboxUser(loginInfo, loginToken);
+    const accountId = await createBankAccount(userId, bank, loginToken);
+    return accountId;
+  } catch (error) {
+    console.error("Error in create workflow:", error);
+    throw error;
+  }
 }

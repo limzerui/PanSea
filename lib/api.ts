@@ -1,3 +1,6 @@
+import { create } from "./services";
+import { LoginInfo } from "./sandbox";
+
 // types
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -31,27 +34,40 @@ export async function getAssistantResponse(history: Msg[]): Promise<string> {
       console.warn("Failed to parse AI JSON, returning raw output.", e);
     }
 
-    if (parsed?.action) {
+    if (parsed?.action && parsed?.parameters.login_token) {
       try {
-        const actionRes = await fetch(`/api/${parsed.action}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(parsed.parameters || {})
-        });
-        const actionData = await actionRes.json();
-
-        const followUpHistory: Msg[] = [
-          ...safeHistory, // <- not the original `history`
-          { role: "assistant", content: raw },
-          {
-            role: "user",
-            content: `The user requested an action "${parsed.action}". The backend returned: ${JSON.stringify(
-              actionData
-            )}. Generate a clear, friendly message to the user summarizing the result.`
+        const action = parsed.action;
+        if (action == "create") {
+          const loginInfo: LoginInfo = {
+            email: parsed.parameters.email,
+            username: parsed.parameters.email,
+            password: parsed.parameters.password,
+            first_name: parsed.parameters.first_name,
+            last_name: parsed.parameters.last_name,
+          };
+          let newUserId = "";
+          let newAccountId = "";
+          let createError = null;
+          try {
+            newAccountId = await create(loginInfo, parsed.parameters.bank_id, parsed.parameters.login_token);
+          } catch (err) {
+            createError = err;
           }
-        ];
 
-        return await getAssistantResponse(followUpHistory);
+          const followUpHistory: Msg[] = [
+            ...safeHistory,
+            { role: "assistant", content: raw },
+            {
+              role: "user",
+              content: createError
+                ? `The user requested an action "${action}". The backend failed to create the account for user: ${parsed.parameters.email}. Error: ${createError}. Generate a clear, friendly message to the user explaining the failure and possible next steps.`
+                : `The user requested an action "${action}". The backend has successfully completed the action and account is setup for user: ${parsed.parameters.email} (userId: ${newUserId}, accountId: ${newAccountId}). Generate a clear, friendly message to the user summarizing the result.`
+            }
+          ];
+
+          return await getAssistantResponse(followUpHistory);
+        }
+        // ...handle other actions...
       } catch (err) {
         console.error(`[Action failed] ${parsed.action || ""}:`, err);
         return parsed.response || parsed.reply || raw;

@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         }
         
         Rules:
-        - For create: required = ["loginToken", "email", "password", "first_name", "last_name", "bank_id"]
+        - For create: required = ["login_token", "email", "password", "first_name", "last_name", "bank_id"]
         - For deposit: required = ["bank_id", "account_id", "deposit_sum", "result_balance"]
         - For withdraw: required = ["bank_id", "account_id", "withdrawal_sum", "result_balance"]
         - For transaction: required = ["bank_id", "account_id", "target_account", "transfer_sum", "result_balance"]

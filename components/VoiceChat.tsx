@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { getAssistantResponse } from '@/lib/api';
+import { useAccountContext } from './AccountContext';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -22,6 +23,7 @@ export default function VoiceChat() {
   const [autoSpeak, setAutoSpeak] = useState<boolean>(true);
   const [recLang, setRecLang] = useState<string>('en-US');
   const [maxAlt, setMaxAlt] = useState<number>(1);
+  const { userId, accountId, loginToken } = useAccountContext();
 
   const {
     isSupported: sttSupported,
@@ -65,7 +67,17 @@ export default function VoiceChat() {
     setIsSending(true);
     try {
       // 1) Convert UI state to API message shape
+      const contextMsg: WireMsg = {
+        role: "user",
+        content: JSON.stringify({
+          userId,
+          accountId,
+          loginToken
+        })
+      };
+
       const historyForApi: WireMsg[] = [
+        contextMsg,
         ...messages.map(m => ({ role: m.role, content: m.text })),
         { role: 'user', content: trimmed },
       ];
@@ -86,6 +98,7 @@ export default function VoiceChat() {
   
       if (ttsSupported && autoSpeak) speak(replyText);
     } catch (err) {
+      console.error("Error getting assistant response:", err);
       const assistantMsg: ChatMessage = {
         id: generateId('asst'),
         role: 'assistant',

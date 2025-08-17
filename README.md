@@ -1,33 +1,38 @@
-# PanSea Voice Frontend (Next.js)
+# Virtual Banking Assistant
 
-Frontend-only demo that:
-- Captures voice and transcribes to text (Web Speech API)
-- Displays spoken text and responses
-- Speaks responses with text-to-speech
-- Prepares for a backend response but works without one via mock mode
+A chat-based banking assistant powered by an LLM, connected to a sandbox bank API that mimics real banking operations. Powered by SEA-LION, the assistant can seamlessly handle banking tasks in multiple Southeast Asian languages — from English and Bahasa Indonesia to Tagalog, Thai, and Vietnamese — enabling users to open accounts, deposit, withdraw, and transfer funds in their own language.
 
-## Run
 
-```bash
-# From the project root
-npm install
-npm run dev
-```
 
-Open `http://localhost:3000`.
+---
 
-## Configure Backend (Optional)
+## What It Does
+- Provides a conversational interface for everyday banking, reducing the need for complex app navigation  
+- Supports key operations to mimic real banking:  
+  - Account creation → onboard new users quickly  
+  - Deposits → add funds easily  
+  - Withdrawals → access funds on demand  
+  - Transfers → move money between accounts instantly  
+- Understands and responds in multiple Southeast Asian languages (English, Bahasa Indonesia, Tagalog, Thai, Vietnamese), making banking more inclusive and accessible  
+- Automatically validates and asks for missing details, ensuring smooth and error-free transactions  
+- Records every successful action in structured JSON, enabling easy integration with real banking systems  
+---
 
-Set an environment variable to point to your backend endpoint that accepts POST JSON `{ message: string }` and returns `{ reply: string }` or plain text:
+## How It Works
+1. User message → sent to LLM (SEA-LION), which can interpret banking requests in Southeast Asian languages (e.g. Bahasa Indonesia, Tagalog, Thai, Vietnamese) and normalize them into English for processing.  
+2. LLM (SEA-LION) → responds in a strict JSON schema for the sandbox banking API.  
+3. Sandbox Bank API → executes the simulated banking operation.  
+4. Backend returns both a clean reply for the user in their original language and the raw JSON for the bank API to process cleanly.  
+---
 
-```bash
-# Example
-NEXT_PUBLIC_BACKEND_URL=https://your-backend.example.com/respond npm run dev
-```
+## Tech Stack
+- Next.js (App Router) 
+- SEA-LION LLM for language understanding  
+- In-memory Sandbox Bank API for simulating transactions  
 
-If `NEXT_PUBLIC_BACKEND_URL` is not set (or `NEXT_PUBLIC_USE_MOCK=1`), the app returns mock responses locally.
+---
 
-## Notes
-- Speech recognition relies on the browser Web Speech API. It is best supported in Chromium-based browsers.
-- Text-to-speech is widely supported, but available voices vary by OS/browser.
-- No OpenAI SDK or backend code is included. 
+## Setup and Run
+- Create a .env.local file in the project root with: SEA_LION_API_KEY=your_api_key_here
+- npm run dev
+

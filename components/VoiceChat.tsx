@@ -70,7 +70,7 @@ export default function VoiceChat() {
         { role: 'user', content: trimmed },
       ];
   
-
+      // max 16 msgs in history, actually why?
       const trimmedHistory = trimHistory(historyForApi, { maxTurns: 16 });
       
   

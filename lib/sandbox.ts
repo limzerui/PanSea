@@ -1,5 +1,5 @@
 // This is the users' login details
-interface LoginInfo {
+export type LoginInfo = {
     email: string;
     username: string; // same as email
     // password requirements: Your password should EITHER be 
@@ -11,9 +11,9 @@ interface LoginInfo {
 }
 
 export enum SUPPORTED_BANK {
-    BANKA = "banka",
-    BANKB = "bankb",
-    BANKC = "bankC"
+    BANKA = "bank-a",
+    BANKB = "bank-b",
+    BANKC = "bank-c"
 }
 
 // my self-hosted api :)

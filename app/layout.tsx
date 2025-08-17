@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AccountProvider } from '@/components/AccountContext';
 
 export const metadata: Metadata = {
   title: 'PanSea Voice Demo',
@@ -13,7 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AccountProvider>
+          {children}
+        </AccountProvider>
+      </body>
     </html>
   );
 } 

@@ -28,7 +28,7 @@ A chat-based banking assistant powered by an LLM, connected to a sandbox bank AP
 ## Tech Stack
 - Next.js (App Router) 
 - SEA-LION LLM for language understanding  
-- In-memory Sandbox Bank API for simulating transactions  
+- Uses a self-deployed sandbox Bank API from Open Bank Project (OBP) for simulating banking
 
 ---
 

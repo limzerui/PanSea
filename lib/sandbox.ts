@@ -11,9 +11,9 @@ export type LoginInfo = {
 }
 
 export enum SUPPORTED_BANK {
-    BANKA = "bank-a",
-    BANKB = "bank-b",
-    BANKC = "bank-c"
+    BANKA = "banka",
+    BANKB = "bankb",
+    BANKC = "bankC"
 }
 
 // my self-hosted api :)
@@ -23,17 +23,21 @@ const MY_API_HOST = "https://obp-api-production-bd77.up.railway.app"
 // then future authenticated API calls will use the token
 // Note that the username and password is from sandbox account, NOT THE USERS' LOGIN INFO
 export async function loginToSandbox(username: string, password: string): Promise<string> {
+    console.log("Logging in to sandbox with username:", username);
+    console.log("Using API host:", MY_API_HOST);
+    console.log("Using consumer key:", process.env.NEXT_PUBLIC_MY_API_CONSUMER_KEY);
+    console.log("password: ", password);
     const response = await fetch(MY_API_HOST + "/my/logins/direct", {
         method: "POST",
         headers: { 
             "Content-Type": "application/json",
-            "directlogin": `username=${username},password=${password},consumer_key=${process.env.MY_API_CONSUMER_KEY}`
+            "directlogin": `username=${username},password=${password},consumer_key=${process.env.NEXT_PUBLIC_MY_API_CONSUMER_KEY}`
         }
     });
     if (!response.ok) {
         const data = await response.json().catch(() => ({message: ''}));
-        console.log(data.message);
-        throw new Error(`HTTP ${response.status}`);
+        console.error("Sandbox login failed:", response.status, data.message); // console logging instead of throwing to frontend
+        return "";
     }
     const data = await response.json()
     return data.token;
@@ -111,7 +115,7 @@ export async function createBankAccount(user_id: string, bank: SUPPORTED_BANK, l
 export async function makeTransaction(
     from_bank: SUPPORTED_BANK, from_account_id: string, 
     to_bank: SUPPORTED_BANK, to_account_id: string, 
-    description: string, amount: Number, 
+    amount: Number, 
     loginToken: string
 ): Promise<string> {
     const response = await fetch(`${MY_API_HOST}/obp/v5.1.0/banks/${from_bank}/accounts/${from_account_id}/owner/transaction-request-types/SANDBOX_TAN/transaction-requests`, {
@@ -129,7 +133,7 @@ export async function makeTransaction(
                 currency: "SGD",
                 amount: `${amount}`
             },
-            description: description
+            description: "transfer"
         })
     });
     if (!response.ok) {

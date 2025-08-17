@@ -1,83 +1,93 @@
 import { create } from "./services";
-import { LoginInfo } from "./sandbox";
+import { LoginInfo, makeTransaction, SUPPORTED_BANK } from "./sandbox";
+import { EXISTING_USERS } from "./users";
 
 // types
 type Msg = { role: "user" | "assistant"; content: string };
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "1";
-export async function getAssistantResponse(history: Msg[]): Promise<string> {
-  const safeHistory: Msg[] = Array.isArray(history) ? history : [];
+// Helper function to validate account IDs
+function validateAccountId(accountId: string, bankId: string): boolean {
+  return EXISTING_USERS[0].accounts.some(account => 
+    account.account_id === accountId && account.bank_id === bankId
+  );
+}
 
-  if (USE_MOCK) {
-    await sleep(400);
-    const lastUser = [...safeHistory].reverse().find(m => m.role === "user");
-    return mockResponder(lastUser?.content || "");
+// Helper function to get available accounts formatted for display
+function getAvailableAccountsDisplay(): string {
+  return EXISTING_USERS[0].accounts.map((account, index) => 
+    `${index + 1}. ${account.bank_id} - Account ID: ${account.account_id}`
+  ).join("\n");
+}
+
+// Helper function to extract login token from context
+function extractLoginTokenFromContext(history: Msg[]): string | null {
+  if (history.length === 0) return null;
+  
+  try {
+    // Check if the first message contains context
+    const firstMessage = history[0];
+    if (firstMessage.role === "user") {
+      const contextData = JSON.parse(firstMessage.content);
+      return contextData.loginToken || null;
+    }
+  } catch (e) {
+    console.warn("Failed to extract login token from context:", e);
   }
+  
+  return null;
+}
+
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "1";
+export async function getAssistantResponse(history: Msg[], recursionDepth: number = 0): Promise<{accountId?: string, response: string}> {
+  const safeHistory: Msg[] = Array.isArray(history) ? history : [];
+  
+  // Prevent infinite recursion
+  if (recursionDepth > 2) {
+    console.warn("Recursion limit reached, returning fallback response");
+    return { response: "I'm having trouble processing your request. Please try again with more specific information." };
+  }
+
+  // Extract login token from context
+  const loginToken = extractLoginTokenFromContext(safeHistory);
+  console.log("Extracted login token from context:", loginToken);
+
+  // if (USE_MOCK) {
+  //   await sleep(400);
+  //   const lastUser = [...safeHistory].reverse().find(m => m.role === "user");
+  //   return mockResponder(lastUser?.content || "");
+  // }
 
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: safeHistory })
+      body: JSON.stringify({ 
+        messages: [
+          {
+            role: "system",
+            content: `CRITICAL: Respond ONLY with valid JSON. NO explanations, NO thinking process, NO text before or after JSON. ONLY the JSON object.
+
+CONTEXT: Current login token is: ${loginToken || 'null'}
+
+ALWAYS include this login_token in your parameters.`
+          },
+          ...safeHistory
+        ]
+      })
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data: { raw?: string; reply?: string } = await res.json();
-    const raw = data.raw?.trim() || data.reply?.trim() || "AI did not respond.";
+    const reply = data.reply?.trim() || "AI did not respond.";
+    const raw = data.raw?.trim() || reply;
     console.log("Raw AI response:", raw);
+    console.log("User-friendly reply:", reply);
 
-    let parsed: any = null;
-    try {
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
-    } catch (e) {
-      console.warn("Failed to parse AI JSON, returning raw output.", e);
-    }
-
-    if (parsed?.action && parsed?.parameters.login_token) {
-      try {
-        const action = parsed.action;
-        if (action == "create") {
-          const loginInfo: LoginInfo = {
-            email: parsed.parameters.email,
-            username: parsed.parameters.email,
-            password: parsed.parameters.password,
-            first_name: parsed.parameters.first_name,
-            last_name: parsed.parameters.last_name,
-          };
-          let newUserId = "";
-          let newAccountId = "";
-          let createError = null;
-          try {
-            newAccountId = await create(loginInfo, parsed.parameters.bank_id, parsed.parameters.login_token);
-          } catch (err) {
-            createError = err;
-          }
-
-          const followUpHistory: Msg[] = [
-            ...safeHistory,
-            { role: "assistant", content: raw },
-            {
-              role: "user",
-              content: createError
-                ? `The user requested an action "${action}". The backend failed to create the account for user: ${parsed.parameters.email}. Error: ${createError}. Generate a clear, friendly message to the user explaining the failure and possible next steps.`
-                : `The user requested an action "${action}". The backend has successfully completed the action and account is setup for user: ${parsed.parameters.email} (userId: ${newUserId}, accountId: ${newAccountId}). Generate a clear, friendly message to the user summarizing the result.`
-            }
-          ];
-
-          return await getAssistantResponse(followUpHistory);
-        }
-        // ...handle other actions...
-      } catch (err) {
-        console.error(`[Action failed] ${parsed.action || ""}:`, err);
-        return parsed.response || parsed.reply || raw;
-      }
-    }
-
-    return parsed?.response || parsed?.reply || raw;
+    // Only return the human-friendly reply, don't process JSON for actions
+    return { response: reply };
   } catch (err: any) {
     console.error("Error in getAssistantResponse:", err);
-    return "Could not reach the backend. Please check your connection or use mock mode.";
+    return { response: "Could not reach the backend. Please check your connection or use mock mode." };
   }
 }
 

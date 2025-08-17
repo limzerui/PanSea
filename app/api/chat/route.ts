@@ -21,28 +21,81 @@ export async function POST(req: Request) {
         content: `
         You are a virtual banking assistant.
 
-        Always respond ONLY in valid JSON, no text outside JSON, no <think> blocks.
-        
-        JSON format:
+        CRITICAL INSTRUCTION: You MUST respond with ONLY valid JSON. NO text before or after JSON. NO explanations. NO thinking process. NO <think> blocks. NO markdown formatting. ONLY the JSON object.
+
+        CONTEXT AWARENESS:
+        - ALWAYS check the first message in the conversation for user context (userId, accountId, loginToken)
+        - ALWAYS include the loginToken from context in your parameters
+        - If loginToken is available in context, use it; if not, set it to null
+
+        Your response format MUST be exactly this structure:
         {
-          "action": "<create|deposit|withdraw|transaction|greeting|other>",
-          "required": [ ...list of required fields based on action... ],
-          "parameters": { ...always include all known values here, even if some are missing... },
-          "response": "<user-facing message>"
+          "action": "transfer",
+          "required": ["login_token", "from_bank", "to_bank", "from_account_id", "to_account_id", "amount"],
+          "parameters": {
+            "login_token": "token123",
+            "from_bank": "banka",
+            "to_bank": "bankb",
+            "from_account_id": "60d31a56-ad9b-444f-afa8-ee47e5240124",
+            "to_account_id": "9c701fd4-86ce-4007-bbf1-568bf19eb2ba",
+            "amount": 100
+          },
+          "response": "I'll help you transfer 100 SGD from your Bank A account to your Bank B account."
         }
-        
+
+        Available actions:
+        - "create": When user wants to create/open a new bank account, sign up, register
+        - "transfer": When user wants to transfer money, send money, move funds between accounts
+        - "greeting": When user says hello, hi, or general conversation without banking intent
+        - "other": For any other banking-related queries that don't fit above categories
+
+        Required fields for each action:
+        - create: ["login_token", "email", "password", "first_name", "last_name", "bank_id"]
+        - transfer: ["login_token", "from_bank", "to_bank", "from_account_id", "to_account_id", "amount"]
+        - greeting: []
+        - other: []
+
         Rules:
-        - For create: required = ["login_token", "email", "password", "first_name", "last_name", "bank_id"]
-        - For deposit: required = ["bank_id", "account_id", "deposit_sum", "result_balance"]
-        - For withdraw: required = ["bank_id", "account_id", "withdrawal_sum", "result_balance"]
-        - For transaction: required = ["bank_id", "account_id", "target_account", "transfer_sum", "result_balance"]
-        - For greeting: required = []
-        
-        - Always include "parameters" with ALL values the user has already given you.
-        - If a value is missing, keep the key in "parameters" with null as the value.
-        - Do NOT remove keys from "parameters" just because they are missing — always include them.
-        - If all required fields are present, proceed without asking again.
-        - If any required field is missing, clearly ask for it in "response".
+        - RESPOND WITH ONLY JSON - nothing else
+        - ALWAYS include login_token from context in parameters
+        - Include "parameters" with ALL values the user has given you
+        - If a value is missing, use null in "parameters"
+        - Do NOT remove keys from "parameters" — always include them
+        - If all required fields are present, proceed without asking again
+        - If any required field is missing, clearly ask for it in "response"
+
+        BANK RESTRICTIONS (ENFORCED):
+        - ONLY these 3 banks are supported: "banka", "bankb", "bankC"
+        - NO other banks are allowed or supported
+        - If user mentions any other bank, inform them only these 3 banks are available
+
+        ACCOUNT RESTRICTIONS (ENFORCED):
+        - Users can ONLY transfer to the default user's accounts
+        - Default user accounts are the ONLY valid destination accounts
+        - Users cannot transfer to accounts they don't own or that don't exist
+
+        BANK NAME MAPPING (AUTOMATIC):
+        When user mentions bank names, automatically map them to the correct bank_id:
+        - "Bank A", "BankA", "banka" → "banka"
+        - "Bank B", "BankB", "bankb" → "bankb"  
+        - "Bank C", "BankC", "bankC" → "bankC"
+
+        DEFAULT USER ACCOUNTS (ONLY VALID DESTINATIONS):
+        - banka: "60d31a56-ad9b-444f-afa8-ee47e5240124"
+        - bankb: "9c701fd4-86ce-4007-bbf1-568bf19eb2ba"
+        - bankC: "fc73a698-428f-434c-a425-67dd52e572c2"
+
+        AUTOMATIC ACCOUNT ID MAPPING:
+        - When user specifies "banka" or "Bank A", automatically use account_id: "60d31a56-ad9b-444f-afa8-ee47e5240124"
+        - When user specifies "bankb" or "Bank B", automatically use account_id: "9c701fd4-86ce-4007-bbf1-568bf19eb2ba"
+        - When user specifies "bankC" or "Bank C", automatically use account_id: "fc73a698-428f-434c-a425-67dd52e572c2"
+
+        TRANSFER VALIDATION:
+        - Validate that from_bank and to_bank are one of: "banka", "bankb", "bankC"
+        - Validate that to_account_id matches the default user's account for that bank
+        - If validation fails, explain the restrictions clearly
+
+        REMEMBER: ONLY JSON OUTPUT. NO OTHER TEXT. ALWAYS INCLUDE LOGIN_TOKEN FROM CONTEXT.
         `.trim()
       },
       ...(messages || [{ role: "user", content: message }])
@@ -71,29 +124,60 @@ export async function POST(req: Request) {
     let parsedJson: any = null;
     let displayText = content;
 
+    // Try to parse JSON from the content
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedJson = JSON.parse(jsonMatch[0]);
-
-        // Only check missing fields for banking actions
-        if (
-          parsedJson &&
-          ["create", "deposit", "withdraw", "transaction"].includes(parsedJson.action)
-        ) {
-          const missingFields = parsedJson.required.filter(
-            (field: string) => !(field in parsedJson.parameters) || parsedJson.parameters[field] == null
-          );
-
-          if (missingFields.length > 0) {
-            parsedJson.response = `I still need the following details: ${missingFields.join(", ")}. Please provide them.`;
+      // First, try to parse the entire content as JSON
+      try {
+        parsedJson = JSON.parse(content.trim());
+      } catch (e) {
+        // If that fails, try to extract JSON using a more precise regex
+        // Look for JSON objects that start with { and end with }
+        const jsonMatches = content.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
+        
+        if (jsonMatches) {
+          // Try each potential JSON match, starting with the longest one
+          const sortedMatches = jsonMatches.sort((a: string, b: string) => b.length - a.length);
+          
+          for (const match of sortedMatches) {
+            try {
+              const potentialJson = JSON.parse(match);
+              // Validate that it has the expected structure
+              if (potentialJson && typeof potentialJson === 'object' && 
+                  (potentialJson.action || potentialJson.response || potentialJson.parameters)) {
+                parsedJson = potentialJson;
+                break;
+              }
+            } catch (parseError) {
+              // Continue to next match
+              continue;
+            }
           }
         }
-
-        displayText = parsedJson.response || displayText;
+        
+        // If still no valid JSON found, try a more aggressive approach
+        if (!parsedJson) {
+          // Look for anything that looks like JSON structure
+          const aggressiveMatch = content.match(/\{[^}]*"action"[^}]*\}/);
+          if (aggressiveMatch) {
+            try {
+              parsedJson = JSON.parse(aggressiveMatch[0]);
+            } catch (e) {
+              console.warn("Failed to parse aggressive JSON match:", e);
+            }
+          }
+        }
       }
     } catch (e) {
-      console.warn("Failed to parse JSON:", e, "Raw content:", content);
+      console.warn("Failed to parse AI JSON, using raw content", e);
+      console.warn("Raw content that failed to parse:", content);
+    }
+
+    // Use parsed JSON response if available, otherwise use raw content
+    if (parsedJson && parsedJson.response) {
+      displayText = parsedJson.response;
+    } else if (parsedJson) {
+      // If we have JSON but no response field, create a user-friendly message
+      displayText = "I understand your request. Please provide more details to proceed.";
     }
 
     // Log only if all required fields are valid

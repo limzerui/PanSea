@@ -23,7 +23,7 @@ export default function VoiceChat() {
   const [autoSpeak, setAutoSpeak] = useState<boolean>(true);
   const [recLang, setRecLang] = useState<string>('en-US');
   const [maxAlt, setMaxAlt] = useState<number>(1);
-  const { userId, accountId, loginToken } = useAccountContext();
+  const { userId, accountId, loginToken, setAccountId } = useAccountContext();
 
   const {
     isSupported: sttSupported,
@@ -82,7 +82,7 @@ export default function VoiceChat() {
         { role: 'user', content: trimmed },
       ];
   
-      // max 16 msgs in history, actually why?
+      // max 16 msgs in history so that the ai can see the context of the conversation (without being too slow)
       const trimmedHistory = trimHistory(historyForApi, { maxTurns: 16 });
       
   
@@ -90,13 +90,17 @@ export default function VoiceChat() {
       const replyText = await getAssistantResponse(
         Array.isArray(trimmedHistory) ? trimmedHistory : []
       );
-  
+
+      if (replyText.accountId) {
+        setAccountId(replyText.accountId);
+      }
+
       // 4) Append assistant reply to UI
-      const assistantMsg: ChatMessage = { id: generateId('asst'), role: 'assistant', text: replyText };
+      const assistantMsg: ChatMessage = { id: generateId('asst'), role: 'assistant', text: replyText.response };
       lastAssistantMsgIdRef.current = assistantMsg.id;
       setMessages(prev => [...prev, assistantMsg]);
   
-      if (ttsSupported && autoSpeak) speak(replyText);
+      if (ttsSupported && autoSpeak) speak(replyText.response);
     } catch (err) {
       console.error("Error getting assistant response:", err);
       const assistantMsg: ChatMessage = {
@@ -303,7 +307,7 @@ export default function VoiceChat() {
               Say something with the mic, or type a message, then send.
             </div>
           )}
-          {messages.map((m) => (
+          {[...messages].reverse().map((m) => (
             <div key={m.id} className="card" style={{
               background: m.role === 'user' ? 'rgba(108, 174, 255, 0.09)' : 'rgba(139,92,246,0.09)'
             }}>

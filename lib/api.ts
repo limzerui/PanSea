@@ -1,45 +1,83 @@
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === '1' || !BACKEND_URL;
+// types
+type Msg = { role: "user" | "assistant"; content: string };
 
-export async function getAssistantResponse(userText: string): Promise<string> {
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "1";
+export async function getAssistantResponse(history: Msg[]): Promise<string> {
+  const safeHistory: Msg[] = Array.isArray(history) ? history : [];
+
   if (USE_MOCK) {
     await sleep(400);
-    return mockResponder(userText);
+    const lastUser = [...safeHistory].reverse().find(m => m.role === "user");
+    return mockResponder(lastUser?.content || "");
   }
 
   try {
-    const res = await fetch(`${BACKEND_URL}`.replace(/\/$/, ''), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: userText })
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: safeHistory })
     });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data: { raw?: string; reply?: string } = await res.json();
+    const raw = data.raw?.trim() || data.reply?.trim() || "AI did not respond.";
+    console.log("Raw AI response:", raw);
+
+    let parsed: any = null;
+    try {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      console.warn("Failed to parse AI JSON, returning raw output.", e);
     }
-    const data = await res.json().catch(() => ({ reply: '' }));
-    // Expect backend to return { reply: string }
-    if (typeof data.reply === 'string' && data.reply.trim()) {
-      return data.reply as string;
+
+    if (parsed?.action) {
+      try {
+        const actionRes = await fetch(`/api/${parsed.action}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(parsed.parameters || {})
+        });
+        const actionData = await actionRes.json();
+
+        const followUpHistory: Msg[] = [
+          ...safeHistory, // <- not the original `history`
+          { role: "assistant", content: raw },
+          {
+            role: "user",
+            content: `The user requested an action "${parsed.action}". The backend returned: ${JSON.stringify(
+              actionData
+            )}. Generate a clear, friendly message to the user summarizing the result.`
+          }
+        ];
+
+        return await getAssistantResponse(followUpHistory);
+      } catch (err) {
+        console.error(`[Action failed] ${parsed.action || ""}:`, err);
+        return parsed.response || parsed.reply || raw;
+      }
     }
-    // If backend returns plain text
-    const text = await res.text().catch(() => '');
-    return text || 'Received an empty response from the server.';
+
+    return parsed?.response || parsed?.reply || raw;
   } catch (err: any) {
-    return 'Could not reach the backend. Please check NEXT_PUBLIC_BACKEND_URL or use mock mode.';
+    console.error("Error in getAssistantResponse:", err);
+    return "Could not reach the backend. Please check your connection or use mock mode.";
   }
 }
 
+// helper sleep
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// mock responder
 function mockResponder(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) return 'Say something and I will respond.';
+  const t = input.trim();
+  if (!t) return "Say something and I will respond.";
   const canned = [
-    `You said: "${trimmed}". I hear you loud and clear.`,
-    `Echo: ${trimmed}. What would you like to do next?`,
-    `I understood: ${trimmed}. Here is a helpful response.`
+    `You said: "${t}". I hear you loud and clear.`,
+    `Echo: ${t}. What would you like to do next?`,
+    `I understood: ${t}. Here is a helpful response.`
   ];
   return canned[Math.floor(Math.random() * canned.length)];
-} 
+}

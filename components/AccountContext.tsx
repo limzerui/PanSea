@@ -29,17 +29,6 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const token = await loginToSandbox(ADMIN_USERNAME, ADMIN_PASSWORD);
         setLoginToken(token);
         
-        // Create default user
-        const defaultUser: LoginInfo = {
-          email: "user@example.com",
-          username: "user@example.com",
-          password: "Password123!",
-          first_name: "Default",
-          last_name: "User"
-        };
-        
-        const newUserId = await createSandboxUser(defaultUser, token);
-        setUserId(newUserId);
       } catch (error) {
         console.error("Auto-setup failed:", error);
       }
